@@ -56,25 +56,119 @@ for (i in unique(gapminder$country)) {
 }
 ```
 
+
 Write a script that loops through the gapminder data by continent and prints out whether the mean life expectancy is smaller than 50, between 50 and 70, or greater than 70.
-```{r Loop and If Part 2}
-for (i in unique(gapminder$continent)) {
+```{r Loop and If - Part 2}
+for (i in unique(gapminder$continent)){
     temp_cmLE <- mean(gapminder$lifeExp[gapminder$continent == i]) #mean continent life expectancy
     
-    if (temp_cpop < dataset_mean) {
-        print(paste0("The mean life expectancy for ", i, " is ", temp_cmLE))
+    if (temp_cmLE < 50) {
+        print(paste0("The mean life expectancy for ", i, " is ", round(temp_cmLE), " and is less than 50"))
     } else {
-        print(paste0("The population for ", i, " is higher than the mean population of the data set"))
+        if (temp_cmLE > 70) {
+        print(paste0("The mean life expectancy for ", i, " is ", round(temp_cmLE), " and is greater than 70"))
+    } else {
+        print(paste0("The mean life expectancy for ", i, " is ", round(temp_cmLE), " and is between 50 & 70"))
+    }
     }
 }
 ```
 
-## Including Plots
+## Exercise: Writing Functions
 
-You can also embed plots, for example:
+Create a function that given a data frame will print the name of each column and the class of data it contains. Use the gapminder dataset. Hint: Use mode() or class() to get the class of the data in each column. Remember that names() or colnames() returns the name of the columns in a dataset.
 
-```{r aTho}
-plot(pressure)
+```{r Writing Functions}
+print_col_and_class <-
+    function(dataframe) {
+        my_names <- names(dataframe)
+        my_class <- lapply(dataframe, class)
+        
+        ##length gets the numeric length of my_names
+        ##seq turns that length into a sequence to iterate that many times
+        for (i in seq(length(my_names))) {
+        print(paste0("Column: ", my_names[i], " || Data Class: ", my_class[i]))
+        }
+    }
+
+print_col_and_class(gapminder)
+```
+
+
+Create a function that given a vector will print the mean and the standard deviation of a vector, it will optionally also print the median. Hint: include an argument that takes a boolean (TRUE/FALSE) operator and then include an if statement.
+
+```{r Writing Functions - Part 2}
+print_sd_med <-
+    function(vector, boolean = FALSE) {
+        fx_mean <- mean(vector)
+        fx_sd <- sd(vector)
+        
+        #use cat when you have newline character, new line does not work with print
+        cat(paste0("Mean: ", fx_mean, "\nStandard Deviation: ", fx_sd))
+        if (boolean == TRUE) {
+            cat(paste0("\nMedian: ", median(vector),"\n"))
+        } 
+ }
+
+print_sd_med(gapminder$lifeExp, TRUE)
+print_sd_med(gapminder$lifeExp,)
+```
+
+## Analyzing the Relationship
+
+Use what you???ve learned so far to answer the following questions using the gapminder dataset. Be sure to include some visualizations!
+
+1/ What is the relationship between GDP per capita and life expectancy? Does this relationship change over time? (Hint: Use the natural log of both variables.)
+```{r Analyzing Relationship}
+gapminder$log_gdp <- log(gapminder$gdpPercap)
+gapminder$log_le <- log(gapminder$lifeExp)
+    
+years <- unique(gapminder$year)
+corr_vec <- NULL
+    for (i in years) {
+        year_corr <- cor(gapminder$log_gdp[gapminder$year == i],gapminder$log_le[gapminder$year == i])
+        corr_vec <- c(corr_vec, year_corr)
+    }
+
+plot(corr_vec ~ years, main = "Correlation of GDP & Life Expectancy by Year", xlab = "Year", ylab = "Correlation")
+```
+
+
+2/ Does the relationship between GDP per capita and life expectacy vary by continent? Make sure you divide the Americas into North and South America.
+
+```{r Analyzing Relationships - Part 2}
+##Split Americas into North and South
+gapminder$cont_affinitized <- gapminder$continent
+gapminder$cont_affinitized[gapminder$cont_affinitized == "Americas"] <- NA
+gapminder$cont_affinitized[gapminder$country == "Canada"] <- "North America"
+gapminder$cont_affinitized[gapminder$country == "Guatemala"] <- "North America"
+gapminder$cont_affinitized[gapminder$country == "Costa Rica"] <- "North America"
+gapminder$cont_affinitized[gapminder$country == "Cuba"] <- "North America"
+gapminder$cont_affinitized[gapminder$country == "Dominican Republic"] <- "North America"
+gapminder$cont_affinitized[gapminder$country == "El Salvador"] <- "North America"
+gapminder$cont_affinitized[gapminder$country == "Haiti"] <- "North America"
+gapminder$cont_affinitized[gapminder$country == "Honduras"] <- "North America"
+gapminder$cont_affinitized[gapminder$country == "Jamaica"] <- "North America"
+gapminder$cont_affinitized[gapminder$country == "Nicaragua"] <- "North America"
+gapminder$cont_affinitized[gapminder$country == "Panama"] <- "North America"
+gapminder$cont_affinitized[gapminder$country == "Trinidad and Tobago"] <- "North America"
+gapminder$cont_affinitized[gapminder$country == "United States"] <- "North America"
+gapminder$cont_affinitized[is.na(gapminder$cont_affinitized)] <- "South America"
+
+##evaluate relationship between GDP and life expectancy
+gapminder$log_gdp <- log(gapminder$gdpPercap)
+gapminder$log_le <- log(gapminder$lifeExp)
+    
+continents <- unique(gapminder$cont_affinitized)
+corr_vec <- NULL
+    for (i in continents) {
+        cont_corr <- cor(gapminder$log_gdp[gapminder$cont_affinitized == i],gapminder$log_le[gapminder$cont_affinitized == i])
+        corr_vec <- c(corr_vec, cont_corr)
+    }
+my_df <- data.frame(continents, corr_vec)
+library(ggplot2)
+ggplot(data = my_df, aes(x = continents, y = corr_vec)) + geom_bar(stat="identity") + ggtitle("Correlation of GDP per capita and Life Expectancy by Continent") + labs(x = "Continent", y = "Correlation")
+
 ```
 
 Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
