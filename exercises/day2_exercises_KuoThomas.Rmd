@@ -1,0 +1,123 @@
+---
+title: "R Day 2 exercises"
+author: "Thomas Kuo"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r global_options, echo = FALSE, include = FALSE}
+
+```
+
+<!-- BEFORE YOU START, REMEMBER TO RENAME THE .RMD FILE AND SAVE IT AS day2_exercises_LastNameFirstName.Rmd AND THEN REMOVE THIS INSTRUCTION -->
+
+## Load the data
+
+Read both California energy datasets. Make sure the `datetime` variable is in an appropriate data type (i.e. not character). 
+
+```{r}
+library(here)
+library(readr)
+library(lubridate)
+library(dplyr)
+library(reshape2)
+generation <- read.csv(here::here("data/ca_energy_generation.csv"), stringsAsFactors = FALSE)
+imports <- read.csv(here::here("data/ca_energy_imports.csv"), stringsAsFactors = FALSE)
+generation$datetime <- as_datetime(generation$datetime)
+imports$datetime <- as_datetime(imports$datetime)
+```
+
+
+## Merge and reshape the data
+
+Merge the two datasets and then melt the resulting dataframe/datatable to make it tidy.
+
+```{r}
+merged_energy <- merge(generation, imports, by = "datetime")
+long_me <- melt(merged_energy, id.vars = "datetime",
+                variable.name = "source", #the "column" name becomes the variable name
+                value.name = "usage") #the values are the values stored within the column
+```
+
+
+## Creating new variables
+
+Create a series of new variables: 
+
+1. `day`, which is the year-month-day, without the hour. The `lubridate` function `as_date` will do this.
+2. `log_output`, which is the natural log of the output.
+3. **Challenge**: `per_output`, which is the percent of daily output represented by each observation. You will need to use `group_by` and to create a new variable with the total output for the day. (Make sure to use `ungroup()` after this!)
+
+Bonus: If you are using `dplyr`, try to do this all in one pipe!
+
+```{r}
+long_me <- long_me %>% ##adding columns to the long_me data frame
+    mutate(day = as_date(datetime), #adding the variables "day" and "log_output"
+           log_output = log(usage)) %>%
+    group_by(day) %>% #grouping by day for total daily output
+    mutate(total_daily_output = sum(usage, na.rm = TRUE)) %>% 
+    ungroup() %>% #ungrouping once daily outputs are assigned to each entry in a given day
+    mutate(per_output = usage / total_daily_output) #divide usage by total daily output for percent
+```
+
+
+## Summarizing and analyzing data
+
+1. Which source has the greatest mean output by hour? (Hint: Use the `dplyr` verb `arrange(desc(variable))` to order the data frame so that the largest value of `variable` is first. Don't use `desc` and it arranges in ascending order. The `data.table` function is `setorder`.) Which has the least?
+2. Which source has the greatest mean output by day? Which has the least? (Do not include zero values.)
+3. Which sources has the greatest variance in usage over the course of a dataset? Which has the least? (Do not include zero values.)
+
+```{r Q3P1}
+#1. Which source has the greatest mean output by hour? (Hint: Use the `dplyr` verb `arrange(desc(variable))` to order the data frame so that the largest value of `variable` is first. Don't use `desc` and it arranges in ascending order. The `data.table` function is `setorder`.) Which has the least?
+library(dplyr)
+long_me %>%
+    group_by(source) %>% #group by source to consolidate all usage by source
+    summarize(hourly_mean = mean(usage), na.rm = T) %>% #summarize the mean output into a new variable
+    arrange(desc(hourly_mean)) #arrange in terms of descending
+
+## natural_gas has the most, while coal has the least
+```
+
+```{r Q3P2}
+#2. Which source has the greatest mean output by day? Which has the least? (Do not include zero values.)
+long_me %>%
+    filter(usage > 0) %>%
+    group_by(source, day) %>%
+    summarize(daily_mean = mean(usage), na.rm = T) %>%
+    arrange(desc(daily_mean)) %>%
+    head(5)
+#natural gas has the greatest mean output by day on 2019-09-05
+
+long_me %>%
+    filter(usage > 0) %>%
+    group_by(source, day) %>%
+    summarize(daily_mean = mean(usage), na.rm = T) %>%
+    arrange(desc(daily_mean)) %>%
+    tail(5)
+#coal has the least mean output by day on 2019-09-07
+```
+
+```{r Q3P3}
+#3. Which sources has the greatest variance in usage over the course of a dataset? Which has the least? (Do not include zero values.)
+long_me %>%
+    filter(usage > 0) %>%
+    group_by(source) %>%
+    summarize(source_var = sd(usage), na.rm = T) %>%
+    arrange(desc(source_var))
+
+#natural_gas has the greatest variance
+#coal has the smallest variance
+```
+
+
+## Analyzing renewable versus non-renewable energy sources
+
+The dataset `regroup.csv` has information about which sources are considered renewable by the state of California. Use this dataset, along with yourdata manipulation skills, to explore the use of renewable and non-renewable sources. Annotate what your descisions for the analysis.
+
+Hint: Use your merge skills to merge the CA energy data with the `regroup` data. Which variable should you join by?
+
+```{r}
+regroup_data <- read.csv(here::here("data/ca_energy_regroup.csv"), stringsAsFactors = FALSE)
+long_me <- left_join(long_me, regroup_data, by = c("source" = "type"))
+```
+
